@@ -1,0 +1,6 @@
+[submodule "src/cwl2script"]
+	path = src/cwl2script
+	url = https://github.com/common-workflow-language/cwl2script
+[submodule "src/cwltool"]
+	path = src/cwltool
+	url = https://github.com/common-workflow-language/cwl2script
