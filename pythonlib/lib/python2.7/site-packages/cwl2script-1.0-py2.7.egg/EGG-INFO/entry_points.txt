@@ -1,0 +1,3 @@
+[console_scripts]
+cwl2script = cwl2script:main
+

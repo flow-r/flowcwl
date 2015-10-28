@@ -1,0 +1,10 @@
+#!/risapps/rhel6/python/2.7.10/anaconda/bin/python
+# EASY-INSTALL-ENTRY-SCRIPT: 'cwltool==1.0.20151026181844','console_scripts','cwltool'
+__requires__ = 'cwltool==1.0.20151026181844'
+import sys
+from pkg_resources import load_entry_point
+
+if __name__ == '__main__':
+    sys.exit(
+        load_entry_point('cwltool==1.0.20151026181844', 'console_scripts', 'cwltool')()
+    )

@@ -1,0 +1,7 @@
+cwl2script.egg-info/PKG-INFO
+cwl2script.egg-info/SOURCES.txt
+cwl2script.egg-info/dependency_links.txt
+cwl2script.egg-info/entry_points.txt
+cwl2script.egg-info/requires.txt
+cwl2script.egg-info/top_level.txt
+cwl2script.egg-info/zip-safe

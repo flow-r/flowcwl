@@ -1,0 +1,73 @@
+Metadata-Version: 1.1
+Name: cwl2script
+Version: 1.0
+Summary: Compile Common Workflow Languge to shell script
+Home-page: https://github.com/common-workflow-language/cwl2script
+Author: Common workflow language working group
+Author-email: common-workflow-language@googlegroups.com
+License: Apache 2.0
+Download-URL: https://github.com/common-workflow-language/cwl2script
+Description: This compiles simple common workflow language workflows to a shell script.
+        
+        Example:
+        
+        $ cwl2script test/revsort.cwl test/revsort-job.json
+        #!/bin/sh
+        
+        # Workflow generated from file:///home/peter/work/cwl2script/test/revsort.cwl using cwl2script
+        set -x
+        
+        # Run step file:///home/peter/work/cwl2script/test/revsort.cwl#rev
+        # depends on step file:///home/peter/work/cwl2script/test/revsort.cwl
+        mkdir -p /tmp/tmpwDQXXq  # output directory
+        mkdir -p /tmp/tmpWwRuUa  # temporary directory
+        rev /home/peter/work/cwl2script/test/whale.txt > /tmp/tmpwDQXXq/output.txt
+        rm -r /tmp/tmpWwRuUa     # clean up temporary directory
+        
+        # Run step file:///home/peter/work/cwl2script/test/revsort.cwl#sorted
+        # depends on step file:///home/peter/work/cwl2script/test/revsort.cwl#rev
+        # depends on step file:///home/peter/work/cwl2script/test/revsort.cwl
+        mkdir -p /tmp/tmp2i5tmU  # output directory
+        mkdir -p /tmp/tmpEGP9Nz  # temporary directory
+        sort --reverse /tmp/tmpwDQXXq/output.txt > /tmp/tmp2i5tmU/output.txt
+        rm -r /tmp/tmpEGP9Nz     # clean up temporary directory
+        
+        # Move output files to the current directory
+        mv /tmp/tmp2i5tmU/output.txt .
+        
+        # Clean up staging output directories
+        rm -r /tmp/tmpwDQXXq /tmp/tmp2i5tmU
+        
+        # Generate final output object
+        echo '{
+            "output": {
+                "path": "output.txt",
+                "class": "File"
+            }
+        }'
+        
+        $ cwl2script test/revsort.cwl test/revsort-job.json > workflow.sh
+        $ sh workflow.sh
+        + mkdir -p /tmp/tmpXBEvw5
+        + mkdir -p /tmp/tmpsvOqNs
+        + rev /home/peter/work/cwl2script/test/whale.txt
+        + rm -r /tmp/tmpsvOqNs
+        + mkdir -p /tmp/tmpNq3QxP
+        + mkdir -p /tmp/tmpYjrRnw
+        + sort --reverse /tmp/tmpXBEvw5/output.txt
+        + rm -r /tmp/tmpYjrRnw
+        + mv /tmp/tmpNq3QxP/output.txt .
+        + rm -r /tmp/tmpXBEvw5 /tmp/tmpNq3QxP
+        + echo {
+            "output": {
+                "path": "output.txt",
+                "class": "File"
+            }
+        }
+        {
+            "output": {
+                "path": "output.txt",
+                "class": "File"
+            }
+        }
+Platform: UNKNOWN

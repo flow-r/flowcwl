@@ -1,0 +1,6 @@
+requests
+PyYAML
+rdflib >= 4.2.0
+rdflib-jsonld >= 0.3.0
+shellescape
+schema_salad >= 1.0.4

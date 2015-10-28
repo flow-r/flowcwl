@@ -1,0 +1,3 @@
+[console_scripts]
+schema-salad-tool = schema_salad.main:main
+

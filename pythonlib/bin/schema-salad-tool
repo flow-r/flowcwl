@@ -1,0 +1,10 @@
+#!/risapps/rhel6/python/2.7.10/anaconda/bin/python
+# EASY-INSTALL-ENTRY-SCRIPT: 'schema-salad==1.0.4','console_scripts','schema-salad-tool'
+__requires__ = 'schema-salad==1.0.4'
+import sys
+from pkg_resources import load_entry_point
+
+if __name__ == '__main__':
+    sys.exit(
+        load_entry_point('schema-salad==1.0.4', 'console_scripts', 'schema-salad-tool')()
+    )
