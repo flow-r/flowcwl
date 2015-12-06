@@ -196,3 +196,35 @@ def main(args=None):
 
 if __name__=="__main__":
 	sys.exit(main(sys.argv[1:]))
+
+
+def test():
+    # cwltool and cwljob the two .cwl and .json files
+    #cwltool = ""
+    #cwljob = ""
+    return 0
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# END

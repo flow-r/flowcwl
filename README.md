@@ -14,7 +14,11 @@ git clone https://github.com/flow-r/flowcwl
 
 
 ```
-python srs/cwltool/setup.py install
+pip install cwl-runner
+# OR
+git clone https://github.com/common-workflow-language/cwltool.git
+cd cwltool && python setup.py install
+cd cwl-runner && python setup.py install
 ```
 
 
@@ -23,7 +27,7 @@ python srs/cwltool/setup.py install
 
 ```
 mkdir test
-python src/cwl2script/cwl2script.py src/cwl2script/test/revsort.cwl src/cwl2script/test/revsort-job.json > test/revsort.sh
+python cwl2script.py src/cwl2script/test/revsort.cwl src/cwl2script/test/revsort-job.json > test/revsort.sh
 ```
 
 One may use use these compiled python packages (2.7.10) for linux x86_64.
