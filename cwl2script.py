@@ -14,194 +14,252 @@ needs_shell_quoting = re.compile(r"""(^$|[\s|&;()<>\'"$@])""").search
 glob_metacharacters = re.compile(r"""[\[\]\*?]""").search
 
 def maybe_quote(arg):
-	return shellescape.quote(arg) if needs_shell_quoting(arg) else arg
+    return shellescape.quote(arg) if needs_shell_quoting(arg) else arg
 
-def generateScriptForTool(tool, job, outdir): #main thing where it concatenate parameters with input/output
-	for j in tool.job(job, "", None, outdir=outdir):
-		return ("""
+
+def generateScriptForTool(tool, job, outdir):
+    for j in tool.job(job, "", None, outdir=outdir):
+        return ("""mkdir -p %s  # output directory
+mkdir -p %s  # temporary directory
 %s%s%s
-""" % (
-										"\t".join([maybe_quote(arg) for arg in (j.command_line)]),
-							'\t<\t%s' % maybe_quote(j.stdin) if j.stdin else '',
-										'\t>\t%s' % maybe_quote(os.path.join(j.outdir, j.stdout)) if j.stdout else '',
-		),
-				j.outdir, j.tmpdir)
+rm -r %s     # clean up temporary directory
+""" % (maybe_quote(j.outdir),
+        maybe_quote(j.tmpdir),
+        " ".join([maybe_quote(arg) for arg in (j.command_line)]),
+        ' < %s' % maybe_quote(j.stdin) if j.stdin else '',
+        ' > %s' % maybe_quote(os.path.join(j.outdir, j.stdout)) if j.stdout else '',
+       maybe_quote(j.tmpdir)),
+                j.outdir, j.tmpdir)
+
+
+# main thing where it concatenate parameters with input/output
+def generateScriptForTool(tool, job, outdir):
+    # tool = step.embedded_tool
+    for j in tool.job(job, "", None, outdir=outdir):
+        print "> working on job ", j
+        jobnm = ""
+        cmdline1 = " ".join([maybe_quote(arg) for arg in (j.command_line)])
+        cmdline2 = ' > %s' % maybe_quote(os.path.join(j.outdir, j.stdout)) if j.stdout else ''
+        cmdline3 = maybe_quote(j.tmpdir)
+        return (cmdline1, j.outdir, j.tmpdir)
+
+
+
+"""
+A function to create a list of commands to be executed.
+"""
+def list2df(x):
+    return 0
 
 
 def generateScriptForWorkflow(cwlwf, cwljob, outdir):
-	promises = {}
-	jobs = {}
-# 	script = ["#!/bin/sh",
-# 			"",
-# 			"# Workflow generated from %s using cwl2script" % (cwlwf.tool["id"]),
-# 			""
-# 			"set -x",
-# 			""
-# 		]
-	script = []
-	outdirs = []
+    promises = {}
+    jobs = {}
+    script = []
 
-	for inp in cwlwf.tool["inputs"]:
-		promises[inp["id"]] = (cwlwf, cwljob[shortname(inp["id"])])
+    outdirs = []
 
-	alloutputs_fufilled = False
-	while not alloutputs_fufilled:
-		# Iteratively go over the workflow steps, adding jobs to the script as their
-		# dependencies are fufilled by upstream workflow inputs or
-		# step outputs.  Loop exits when the workflow outputs
-		# are satisfied.
+    print "> inputs for this workflow are: ", cwlwf.tool["inputs"]
+    print "> steps in this workflow are: ", cwlwf.steps
 
-		alloutputs_fufilled = True
+    # need to confirm why this is neccesary
+    for inp in cwlwf.tool["inputs"]:
+        promises[inp["id"]] = (cwlwf, cwljob[shortname(inp["id"])])
 
-		progress = False
-		for step in cwlwf.steps:
-			if step.tool["id"] not in jobs:
-				stepinputs_fufilled = True
-				for inp in step.tool["inputs"]:
-					if "source" in inp and inp["source"] not in promises:
-						stepinputs_fufilled = False
-				if stepinputs_fufilled:
-					jobobj = {}
+    alloutputs_fufilled = False
+    while not alloutputs_fufilled:
+        # Iteratively go over the workflow steps, adding jobs to the script as their
+        # dependencies are fufilled by upstream workflow inputs or
+        # step outputs.  Loop exits when the workflow outputs
+        # are satisfied.
 
-					# TODO: Handle multiple inbound links
-					# TODO: Handle scatter/gather
-					# (both are discussed in section 5.1.2 in CWL spec draft-2)
+        alloutputs_fufilled = True
 
-					#script.append("# Run step %s" % step.tool["id"])
+        progress = False
+        # step = t.steps[1] # testing
+        for step in t.cwlwf.steps:
+            if step.tool["id"] not in jobs:
+                stepinputs_fufilled = True
+                for inp in step.tool["inputs"]:
+                    if "source" in inp and inp["source"] not in promises:
+                        stepinputs_fufilled = False
+                if stepinputs_fufilled:
+                    jobobj = {}
 
-					for inp in step.tool["inputs"]:
-						if "source" in inp:
-							jobobj[shortname(inp["id"])] = promises[inp["source"]][1]
-							#script.append("# depends on step %s" % promises[inp["source"]][0].tool["id"])
-						elif "default" in inp:
-							d = copy.copy(inp["default"])
-							jobobj[shortname(inp["id"])] = d
+                    # TODO: Handle multiple inbound links
+                    # TODO: Handle scatter/gather
+                    # (both are discussed in section 5.1.2 in CWL spec draft-2)
 
-					(wfjob, joboutdir, jobtmpdir) = generateScriptForTool(step.embedded_tool, jobobj, None)
-					outdirs.append(joboutdir)
+                    #script.append("# Run step %s" % step.tool["id"])
 
-					jobs[step.tool["id"]] = True
-					# This line is where is generates the command together with arguments (from the function generateScriptForTool)
-					script.append(wfjob)
+                    for inp in step.tool["inputs"]:
+                        if "source" in inp:
+                            jobobj[shortname(inp["id"])] = promises[inp["source"]][1]
+                            #script.append("# depends on step %s" % promises[inp["source"]][0].tool["id"])
+                        elif "default" in inp:
+                            d = copy.copy(inp["default"])
+                            jobobj[shortname(inp["id"])] = d
 
-					for out in step.tool["outputs"]:
-						for toolout in step.embedded_tool.tool["outputs"]:
-							if shortname(toolout["id"]) == shortname(out["id"]):
-								if toolout["type"] != "File":
-									raise Exception("Only supports file outputs")
-								if glob_metacharacters(toolout["outputBinding"]["glob"]):
-									raise Exception("Only support glob with concrete filename.")
-								promises[out["id"]] = (step, {"class":"File", "path": os.path.join(joboutdir, toolout["outputBinding"]["glob"])})
-					progress = True
+                    (wfjob, joboutdir, jobtmpdir) = generateScriptForTool(step.embedded_tool, jobobj, None)
+                    outdirs.append(joboutdir)
 
-		for out in cwlwf.tool["outputs"]:
-			if "source" in out:
-				if out["source"] not in promises:
-					alloutputs_fufilled = False
+                    jobs[step.tool["id"]] = True
+                    # This line is where it generates the command together with arguments
+                    # (from the function generateScriptForTool)
+                    script.append(wfjob)
 
-		if not alloutputs_fufilled and not progress:
-			raise Exception("Not making progress")
+                    for out in step.tool["outputs"]:
+                        for toolout in step.embedded_tool.tool["outputs"]:
+                            if shortname(toolout["id"]) == shortname(out["id"]):
+                                if toolout["type"] != "File":
+                                    raise Exception("Only supports file outputs")
+                                if glob_metacharacters(toolout["outputBinding"]["glob"]):
+                                    raise Exception("Only support glob with concrete filename.")
+                                promises[out["id"]] = (step, {"class":"File", "path": os.path.join(joboutdir, toolout["outputBinding"]["glob"])})
+                    progress = True
 
-# 	outobj = {}
-# 	script.append("# Move output files to the current directory")
-# 
-# 	for out in cwlwf.tool["outputs"]:
-# 		f = promises[out["source"]][1]
-# 		script.append("mv %s ." % (maybe_quote(f["path"])))
-# 		f["path"] = os.path.basename(f["path"])
-# 
-# 		if f.get("secondaryFiles"):
-# 			script.append("mv %s ." % (' '.join([maybe_quote(sf["path"]) for sf in f["secondaryFiles"]])))
-# 			for sf in f["secondaryFiles"]:
-# 				sf["path"] = os.path.basename(sf["path"])
-# 
-# 		outobj[shortname(out["id"])] = f
+        for out in cwlwf.tool["outputs"]:
+            if "source" in out:
+                if out["source"] not in promises:
+                    alloutputs_fufilled = False
 
-# 	script.append("")
-# 	script.append("# Clean up staging output directories")
-# 	script.append("rm -r %s" % (' '.join([maybe_quote(od) for od in outdirs])))
-# 	script.append("")
+        if not alloutputs_fufilled and not progress:
+            raise Exception("Not making progress")
 
-# 	script.append("# Generate final output object")
-# 	script.append("echo '%s'" % json.dumps(outobj, indent=4))
+#     outobj = {}
+#     script.append("# Move output files to the current directory")
+#
+#     for out in cwlwf.tool["outputs"]:
+#         f = promises[out["source"]][1]
+#         script.append("mv %s ." % (maybe_quote(f["path"])))
+#         f["path"] = os.path.basename(f["path"])
+#
+#         if f.get("secondaryFiles"):
+#             script.append("mv %s ." % (' '.join([maybe_quote(sf["path"]) for sf in f["secondaryFiles"]])))
+#             for sf in f["secondaryFiles"]:
+#                 sf["path"] = os.path.basename(sf["path"])
+#
+#         outobj[shortname(out["id"])] = f
 
-	return "\n".join(script)
+#     script.append("")
+#     script.append("# Clean up staging output directories")
+#     script.append("rm -r %s" % (' '.join([maybe_quote(od) for od in outdirs])))
+#     script.append("")
+
+#     script.append("# Generate final output object")
+#     script.append("echo '%s'" % json.dumps(outobj, indent=4))
+
+    return "\n".join(script)
 
 
 
 supportedProcessRequirements = ["SchemaDefRequirement"]
 
+
+
 def main(args=None):
-	parser = argparse.ArgumentParser()
-	parser.add_argument("cwltool", type=str)
-	parser.add_argument("cwljob", type=str)
+    parser = argparse.ArgumentParser()
+    parser.add_argument("cwltool", type=str)
+    parser.add_argument("cwljob", type=str)
 
-	parser.add_argument("--conformance-test", action="store_true")
-	parser.add_argument("--no-container", action="store_true")
-	parser.add_argument("--basedir", type=str)
-	parser.add_argument("--outdir", type=str, default=os.getcwd())
+    parser.add_argument("--conformance-test", action="store_true")
+    parser.add_argument("--no-container", action="store_true")
+    parser.add_argument("--basedir", type=str)
+    parser.add_argument("--outdir", type=str, default=os.getcwd())
 
-	options = parser.parse_args(args)
+    options = parser.parse_args(args)
 
-	uri = "file://" + os.path.abspath(options.cwljob)
+    uri = "file://" + os.path.abspath(options.cwljob)
 
-	if options.conformance_test:
-		loader = schema_salad.ref_resolver.Loader({})
-	else:
-		loader = schema_salad.ref_resolver.Loader({
-			"@base": uri,
-			"path": {
-				"@type": "@id"
-			}
-		})
+    if options.conformance_test:
+        loader = schema_salad.ref_resolver.Loader({})
+    else:
+        loader = schema_salad.ref_resolver.Loader({
+            "@base": uri,
+            "path": {
+                "@type": "@id"
+            }
+        })
 
-	job, _ = loader.resolve_ref(uri)
 
-	t = cwltool.main.load_tool(options.cwltool, False, False, cwltool.workflow.defaultMakeTool, True)
+    job, _ = loader.resolve_ref(uri)
+    print "> job looks like ", job
 
-	if type(t) == int:
-		return t
 
-	try:
-		checkRequirements(t.tool, supportedProcessRequirements)
-	except Exception as e:
-		logging.error(e)
-		return 33
+    print "> working with ", options.cwltool
+    # returns a workflow/tool object
+    t = cwltool.main.load_tool(options.cwltool, False, False, cwltool.workflow.defaultMakeTool, True)
 
-	for inp in t.tool["inputs"]:
-		if shortname(inp["id"]) in job:
-			pass
-		elif shortname(inp["id"]) not in job and "default" in inp:
-			job[shortname(inp["id"])] = copy.copy(inp["default"])
-		elif shortname(inp["id"]) not in job and inp["type"][0] == "null":
-			pass
-		else:
-			raise Exception("Missing inputs `%s`" % shortname(inp["id"]))
+    #print t
 
-	if options.conformance_test:
-		sys.stdout.write(json.dumps(cwltool.main.single_job_executor(t, job, options.basedir, options, conformance_test=True), indent=4))
-		return 0
+    #print "> Need ", supportedProcessRequirements, " for tool ", t
 
-	if not options.basedir:
-		options.basedir = os.path.dirname(os.path.abspath(options.cwljob))
+    # check the requirements of the tool, skip for now
+    if type(t) == int:
+        return t
 
-	outdir = options.outdir
+    try:
+        #checkRequirements(t.tool, supportedProcessRequirements)
+        print "skipping requirement checking ..."
+    except Exception as e:
+        logging.error(e)
+        return 33
 
-	if t.tool["class"] == "Workflow":
-		print generateScriptForWorkflow(t, job, outdir)
-	elif t.tool["class"] == "CommandLineTool":
-		print generateScriptForTool(t, job, outdir)
+    # ----------------- assign inputs to jobs ------------------------------ #
+    for inp in t.tool["inputs"]:
+        if shortname(inp["id"]) in job:
+            pass
+        elif shortname(inp["id"]) not in job and "default" in inp:
+            job[shortname(inp["id"])] = copy.copy(inp["default"])
+        elif shortname(inp["id"]) not in job and inp["type"][0] == "null":
+            pass
+        else:
+            raise Exception("Missing inputs `%s`" % shortname(inp["id"]))
+    print "> job looks like ", job
 
-	return 0
+
+    if options.conformance_test:
+        sys.stdout.write(json.dumps(cwltool.main.single_job_executor(t, job, options.basedir, options, conformance_test=True), indent=4))
+        return 0
+
+    if not options.basedir:
+        options.basedir = os.path.dirname(os.path.abspath(options.cwljob))
+
+    outdir = options.outdir
+
+    print "> the cwl file is for a ", t.tool["class"]
+    if t.tool["class"] == "Workflow":
+        print generateScriptForWorkflow(t, job, outdir)
+    elif t.tool["class"] == "CommandLineTool":
+        print generateScriptForTool(t, job, outdir)
+
+    return 0
 
 if __name__=="__main__":
-	sys.exit(main(sys.argv[1:]))
+    sys.exit(main(sys.argv[1:]))
 
 
+# ---------------- some notes and tests for interactive debugging ----------- #
 def test():
     # cwltool and cwljob the two .cwl and .json files
-    #cwltool = ""
-    #cwljob = ""
+    print "i am in ", pwd
+    mycwltool = "src/cwl2script/test/revsort.cwl"
+    cwljob = ""
+
+    # help("cwltool.main")
+    # help("cwltool.main.load_tool")
+
+    help("cwltool.workflow")
+
+
+    # create a tool
+    # load_tool(argsworkflow, updateonly, strict, makeTool, debug, print_pre=False, print_rdf=False, print_dot=False, rdf_serializer=None)
+    t = cwltool.main.load_tool(argsworkflow = mycwltool,
+                               updateonly = False,
+                               strict = False,
+                               makeTool = cwltool.workflow.defaultMakeTool,
+                               debug = True)
+
     return 0
 
 
